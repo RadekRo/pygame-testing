@@ -32,14 +32,38 @@ def draw(window, background, bg_image, player):
     
     pygame.display.update()
 
+def load_sprite_sheets(dir, width, height):
+    path = join("images", dir)
+    images = [f for f in listdir(path) if isfile(join(path, f))]
+
+    all_sprites = dict()
+
+    for image in images:
+        sprite_sheet = pygame.image.load(join(path, image)).convert_alpha()
+
+        sprites = list()
+        for i in range(sprite_sheet.get_width() // width):
+            surface = pygame.Surface((width, height), pygame.SRCALPHA, 32)
+            rect = pygame.Rect(i * width, 0, width, height)
+            surface.blit(sprite_sheet, (0, 0), rect)
+            #sprites.append(pygame.transform.scale2x(surface))
+            sprites.append(surface)
+
+            all_sprites[image.replace(".png", "")] = sprites
+    return all_sprites
+
+
 class Player(pygame.sprite.Sprite):
-    COLOR = (255, 0, 0)
+    SPRITES = load_sprite_sheets("character", 64, 64)
+    ANIMATION_DELAY = 10
+
     def __init__(self, x, y, width, height):
+        super().__init__()
         self.rect = pygame.Rect(x, y, width, height)
         self.x_vel = 0
         self.y_vel = 0
         self.mask = None
-        self.direction = "left"
+        self.direction = "right"
         self.animation_count = 0
 
     def move(self, dx, dy):
@@ -58,11 +82,54 @@ class Player(pygame.sprite.Sprite):
             self.direction = "right"
             self.animation_count = 0
 
+    def move_up(self, vel):
+        self.y_vel = -vel
+        if self.direction != "up":
+            self.direction = "up"
+            self.animation_count = 0
+
+    def move_down(self, vel):
+        self.y_vel = vel
+        if self.direction != "down":
+            self.direction = "down"
+            self.animation_count = 0
+
     def loop(self, fps):
         self.move(self.x_vel, self.y_vel)
+        self.update_sprite()
     
+    def update_sprite(self):
+        sprite_sheet = "idle"
+        if self.x_vel != 0 or self.y_vel != 0:
+            sprite_sheet = "move"
+
+        sprite_sheet_name = sprite_sheet + "-" + self.direction
+        sprites = self.SPRITES[sprite_sheet_name]
+        sprite_index = (self.animation_count // self.ANIMATION_DELAY) % len(sprites)
+        self.sprite = sprites[sprite_index]
+        self.animation_count += 1
+        self.update()
+
+    def update(self):
+        self.rect = self.sprite.get_rect(topLeft = (self.rect.x, self.rect.y))
+        self.mask = pygame.mask.from_surface(self.sprite)
+
     def draw(self, win):
-        pygame.draw.rect(win, self.COLOR, self.rect)
+        win.blit(self.sprite, (self.rect.x, self.rect.y))
+
+def handle_move(player):
+    keys = pygame.key.get_pressed()
+
+    player.x_vel = 0
+    player.y_vel = 0
+    if keys[pygame.K_LEFT]:
+        player.move_left(PLAYER_VEL)
+    if keys[pygame.K_RIGHT]:
+        player.move_right(PLAYER_VEL)
+    if keys[pygame.K_UP]:
+        player.move_up(PLAYER_VEL)
+    if keys[pygame.K_DOWN]:
+        player.move_down(PLAYER_VEL)
 
 def main(window):
     clock = pygame.time.Clock()
@@ -78,6 +145,8 @@ def main(window):
             if event.type == pygame.QUIT:
                 run = False
                 break
+        player.loop(FPS)
+        handle_move(player)
         draw(window, background, bg_image, player)
     pygame.quit()
     quit()
