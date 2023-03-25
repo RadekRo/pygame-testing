@@ -29,6 +29,9 @@ def draw(window, background, bg_image):
         window.blit(bg_image, tile)
     pygame.display.update()
 
+class Player(pygame.sprite.Sprite):
+    pass
+
 def main(window):
     clock = pygame.time.Clock()
     background, bg_image = get_background("stone-floor-tile.jpg")
