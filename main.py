@@ -194,7 +194,7 @@ def main(window):
     player = Player(100, 100, 50, 50)
     south_wall = [Block(i * block_size, HEIGHT - block_size, block_size) for i in range(-WIDTH // block_size, (WIDTH * 2) // block_size)]
     north_wall = [Block(i * block_size, 0, block_size) for i in range(-WIDTH // block_size, (WIDTH * 2) // block_size)]
-    objects = [*south_wall + north_wall]
+    objects = [*south_wall, *north_wall]
     run = True
     while run:
         clock.tick(FPS)
@@ -204,7 +204,7 @@ def main(window):
                 run = False
                 break
         player.loop(FPS)
-        handle_move(player, south_wall)
+        handle_move(player, objects)
         draw(window, background, bg_image, player, objects)
     pygame.quit()
     quit()
