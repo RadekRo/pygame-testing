@@ -9,7 +9,7 @@ pygame.init()
 pygame.display.set_caption("CodeCool Tower")
 
 WIDTH, HEIGHT = 1000, 800
-FPS = 60
+FPS = 50
 PLAYER_VEL = 5
 
 window = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -24,9 +24,11 @@ def get_background(name):
             tiles.append(pos)
     return tiles, image
 
-def draw(window, background, bg_image, player):
+def draw(window, background, bg_image, player, objects):
     for tile in background:
         window.blit(bg_image, tile)
+    for obj in objects:
+        obj.draw(window)
 
     player.draw(window)
     
@@ -52,6 +54,13 @@ def load_sprite_sheets(dir, width, height):
             all_sprites[image.replace(".png", "")] = sprites
     return all_sprites
 
+def get_block(size):
+    path = join("images", "wall-tile.jpg")
+    image = pygame.image.load(path).convert_alpha()
+    surface = pygame.Surface((size, size), pygame.SRCALPHA, 32)
+    rect = pygame.Rect(0, 0, size, size)
+    surface.blit(image, (0, 0), rect)
+    return surface
 
 class Player(pygame.sprite.Sprite):
     SPRITES = load_sprite_sheets("character", 64, 64)
@@ -98,6 +107,16 @@ class Player(pygame.sprite.Sprite):
         self.move(self.x_vel, self.y_vel)
         self.update_sprite()
     
+    def landed(self):
+        self.count = 0
+        self.y_vel *= 1
+        self.rect.y = 650
+
+    def hit_head(self):
+        self.count = 0
+        self.y_vel *= -1
+        self.rect.y = 90
+
     def update_sprite(self):
         sprite_sheet = "idle"
         if self.x_vel != 0 or self.y_vel != 0:
@@ -111,13 +130,46 @@ class Player(pygame.sprite.Sprite):
         self.update()
 
     def update(self):
-        self.rect = self.sprite.get_rect(topLeft = (self.rect.x, self.rect.y))
+        self.rect = self.sprite.get_rect(topleft = (self.rect.x, self.rect.y))
         self.mask = pygame.mask.from_surface(self.sprite)
 
     def draw(self, win):
         win.blit(self.sprite, (self.rect.x, self.rect.y))
 
-def handle_move(player):
+class Object(pygame.sprite.Sprite):
+    def __init__(self, x, y, width, height, name = None):
+        super().__init__()
+        self.rect = pygame.Rect(x, y, width, height)
+        self.image = pygame.Surface((width, height), pygame.SRCALPHA)
+        self.width = width
+        self.height = height
+        self.name = name
+
+    def draw(self, win):
+        win.blit(self.image, (self.rect.x, self.rect.y))
+
+class Block(Object):
+    def __init__(self, x, y, size):
+        super().__init__(x, y, size, size)
+        block = get_block(size)
+        self.image.blit(block, (0, 0))
+        self.mask = pygame.mask.from_surface(self.image)
+
+def handle_vertical_collision(player, objects, dy):
+    collided_objects = list()
+    for obj in objects:
+        if pygame.sprite.collide_mask(player, obj):
+            if dy > 0:
+                player.rect.bottom = obj.rect.top
+                player.landed()
+            elif dy < 0:
+                player.rect.top = obj.rect.bottom
+                player.hit_head()
+
+        collided_objects.append(obj)
+    return collided_objects
+
+def handle_move(player, objects):
     keys = pygame.key.get_pressed()
 
     player.x_vel = 0
@@ -131,12 +183,18 @@ def handle_move(player):
     if keys[pygame.K_DOWN]:
         player.move_down(PLAYER_VEL)
 
+    handle_vertical_collision(player, objects, player.y_vel)
+
 def main(window):
     clock = pygame.time.Clock()
     background, bg_image = get_background("stone-floor-tile.jpg")
 
-    player = Player(100, 100, 50, 50)
+    block_size = 50
 
+    player = Player(100, 100, 50, 50)
+    south_wall = [Block(i * block_size, HEIGHT - block_size, block_size) for i in range(-WIDTH // block_size, (WIDTH * 2) // block_size)]
+    north_wall = [Block(i * block_size, 0, block_size) for i in range(-WIDTH // block_size, (WIDTH * 2) // block_size)]
+    objects = [*south_wall + north_wall]
     run = True
     while run:
         clock.tick(FPS)
@@ -146,8 +204,8 @@ def main(window):
                 run = False
                 break
         player.loop(FPS)
-        handle_move(player)
-        draw(window, background, bg_image, player)
+        handle_move(player, south_wall)
+        draw(window, background, bg_image, player, objects)
     pygame.quit()
     quit()
 
